@@ -48,16 +48,86 @@
 
 #include "nrf.h"
 #include "nordic_common.h"
-#include "boards.h"
+
+#include "nrf_pwr_mgmt.h"
+#include "nrf_drv_clock.h"
+
+#include "app_error.h"
+#include "app_timer.h"
+
+#include "nrf_log.h"
+#include "nrf_log_ctrl.h"
+#include "nrf_log_default_backends.h"
+
+
+
+static void lfclk_config(void)
+{
+    uint32_t err_code;
+
+    err_code = nrf_drv_clock_init();
+    APP_ERROR_CHECK(err_code);
+
+    nrf_drv_clock_lfclk_request(NULL);
+}
+
+
+void log_init(void)
+{
+    ret_code_t err_code;
+
+    err_code = NRF_LOG_INIT(NULL);
+    APP_ERROR_CHECK(err_code);
+
+    NRF_LOG_DEFAULT_BACKENDS_INIT();
+}
+
+static void power_management_init(void)
+{
+    ret_code_t err_code;
+    err_code = nrf_pwr_mgmt_init();
+    APP_ERROR_CHECK(err_code);
+}
+
+
+static void idle_state_handle(void)
+{
+    if (NRF_LOG_PROCESS() == false)
+    {
+        nrf_pwr_mgmt_run();
+    }
+}
+
+APP_TIMER_DEF(m_repeated_timer_id);
+
+static void repeated_timer_handler(void * p_context)
+{
+  NRF_LOG_INFO("Timer !!!!");
+}
+
+static void timers_start()
+{
+  APP_ERROR_CHECK(app_timer_create(&m_repeated_timer_id, APP_TIMER_MODE_REPEATED, repeated_timer_handler));
+  APP_ERROR_CHECK(app_timer_start(m_repeated_timer_id, APP_TIMER_TICKS(1000), NULL));
+}
 
 /**
  * @brief Function for application main entry.
  */
 int main(void)
 {
-    while (true)
-    {
-        // Do nothing.
-    }
+  log_init();
+  lfclk_config();
+  power_management_init();
+  app_timer_init();
+
+  NRF_LOG_INFO("NRF52840 Templete Project Started");
+
+  timers_start();
+
+  while (true)
+  {
+    idle_state_handle();
+  }
 }
 /** @} */
